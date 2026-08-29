@@ -1,0 +1,7 @@
+toolchains/
+kernel_source/
+output/
+AnyKernel3/
+*.log
+*.zip
+*.tar
