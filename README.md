@@ -87,4 +87,10 @@ Repositori ini telah dilengkapi dengan workflow CI/CD bawaan:
 
 ## 📄 Lisensi
 Didistribusikan di bawah lisensi open-source **GNU General Public License v2 (GPL-2.0)**.
-Otomasi build dikembangkan oleh **Muhammad Fikri**.
+Otomasi build dibuat dengan ❤️ oleh **Muhammad Fikri Dev**.
+
+---
+
+<p align="center">
+  Dibuat dengan ❤️ oleh <b>Muhammad Fikri Dev</b>
+</p>
