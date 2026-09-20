@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir toolchain
           cd toolchain
-          # Sửa triệt để lỗi exit code 128 bằng link máy chủ Android Google chuẩn
+          # Đường link Google chính thức thay thế cho link LineageOS cũ đã chết
           git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile Kernel
