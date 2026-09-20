@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir toolchain
           cd toolchain
-         git clone --depth=1 https://googlesource.com gcc64
+          git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile Kernel
         run: |
