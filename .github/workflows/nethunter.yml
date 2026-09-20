@@ -20,9 +20,10 @@ jobs:
 
     - name: Download Toolchain
       run: |
-        mkdir toolchain
+         mkdir toolchain
         cd toolchain
-        git clone --depth=1 https://github.com gcc64
+        # Thay thế link đã chết bằng link GCC 4.9 chuẩn từ kho lưu trữ Android chính thức
+        git clone --depth=1 https://googlesource.com gcc64
 
     - name: Compile Kernel
       run: |
