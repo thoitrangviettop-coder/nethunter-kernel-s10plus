@@ -21,11 +21,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev liblzo2-dev
           
-          # Tự dựng bộ nén lzop thủ công để tránh lỗi hệ thống của chip Exynos 9820
-          curl -LO http://lzop.org
-          tar -xzf lzop-1.04.tar.gz
-          cd lzop-1.04 && ./configure && make && sudo make install
-          cd .. && rm -rf lzop-1.04*
+          # Cài đặt bộ nén lzop chính thức qua Snap để né hoàn toàn lỗi ghi đĩa exit code 23
+          sudo snap install lzop
 
       - name: Download Toolchain via Prebuilt Archive
         run: |
@@ -62,7 +59,6 @@ jobs:
             make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
           fi
           
-          # Thêm cờ lệnh bỏ qua toàn bộ cảnh báo mã nguồn cũ
           make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
 
       - name: Pack Kernel Into Zip
