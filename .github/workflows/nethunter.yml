@@ -18,11 +18,8 @@ jobs:
 
       - name: Setup Build Environment
         run: |
-          # Kích hoạt kho lưu trữ Universe chứa bộ nén lzop chuẩn
           sudo add-apt-repository universe
           sudo apt-get update
-          
-          # Tiến hành cài đặt toàn bộ công cụ bao gồm lzop gốc từ kho lưu trữ Ubuntu
           sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev lzop
 
       - name: Download Toolchain via Prebuilt Archive
@@ -40,10 +37,6 @@ jobs:
           else
             git checkout -f main || git checkout -f master
           fi
-          
-          mkdir -p arch/arm64/configs
-          cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
-          cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
 
       - name: Compile NetHunter Kernel Core
         run: |
@@ -52,14 +45,25 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
+          # Ép hệ thống sao chép file cấu hình từ thư mục configs gốc vào cấu trúc nhân của Linux
+          mkdir -p arch/arm64/configs/
+          if [ -d configs ]; then
+            cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
+            cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
+          fi
+          
+          # Lựa chọn file cấu hình phần cứng Samsung S10+ chip Exynos 9820
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
           elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
             make beyond2lte_defconfig
+          elif [ -f arch/arm64/configs/nethunter_beyond2lte_defconfig ]; then
+            make nethunter_beyond2lte_defconfig
           else
             make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
           fi
           
+          # Thực hiện biên dịch lõi thực tế và tắt toàn bộ cảnh báo cũ để tránh dừng mã lỗi 2
           make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
 
       - name: Pack Kernel Into Zip
