@@ -8,44 +8,48 @@ on:
 
 jobs:
   build-kernel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Tuyen Quang Build Environment
+      - name: Setup Build Environment
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-      - name: Download Proton Clang and Toolchains
+      - name: Download Toolchain via Prebuilt Archive
         run: |
-         mkdir -p toolchain
+          mkdir -p toolchain
           cd toolchain
-          # Sử dụng bộ dịch AOSP Clang chuẩn của Google thay cho Proton Clang để tránh lỗi exit code 128
-          git clone --depth=1 https://googlesource.com clang
-          # Tải bộ dịch GCC phụ trợ bổ sung cho cấu trúc chip ARM64
-          git clone --depth=1 https://googlesource.com gcc64
+          # Tải bản nén ZIP phân tách trực tiếp từ Github giúp né hoàn toàn lỗi kết nối exit code 128
+          curl -LO https://github.com
+          unzip -q lineage-19.1.zip
+          mv android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9-lineage-19.1 gcc64
+          rm lineage-19.1.zip
 
       - name: Compile NetHunter Kernel Core
         run: |
-          # Thiết lập đường dẫn môi trường trỏ thẳng tới 2 bộ Toolchain vừa tải
-          export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
+          export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
-          export CC=clang
-          export CLANG_TRIPLE=aarch64-linux-gnu-
           
-          # Thực hiện cấu hình và biên dịch với cờ lệnh tắt toàn bộ Warning tránh sập mã lỗi 2
-          make -C . exynos9820_defconfig || make -C . beyond2lte_defconfig || make defconfig
+          # Tự động cấu hình cây thư mục mã nguồn
+          if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
+            make exynos9820_defconfig
+          elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
+            make beyond2lte_defconfig
+          else
+            make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
+          fi
+          
           make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
 
       - name: Pack Kernel Into Zip
         run: |
           git clone https://github.com Update-Zip
-          # Tự động quét tìm file Image đầu ra được tạo ra từ quá trình biên dịch để đóng gói
           find arch/arm64/boot/ out/arch/arm64/boot/ -maxdepth 2 -type f -name "Image*" -exec cp {} Update-Zip/ \; 2>/dev/null || true
           cd Update-Zip
           zip -r9 ../NetHunter-Kernel-S10Plus.zip *
