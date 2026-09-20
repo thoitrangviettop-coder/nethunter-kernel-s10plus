@@ -22,34 +22,29 @@ jobs:
       - name: Download Toolchain via Prebuilt Archive
         run: |
           mkdir -p toolchain/gcc64
-          # Sử dụng định dạng nén tar.gz chuẩn Linux để giải nén trực tiếp vào thư mục mà không cần đổi tên gây lỗi 23
           curl -L https://github.com | tar -xzf - -C toolchain/gcc64 --strip-components=1
+
+      - name: Clone Samsung S10+ Kernel Source Tree
+        run: |
+          # Ép hệ thống kéo toàn bộ cây mã nguồn Kernel Exynos 9820 từ nhánh NetHunter chuẩn của tác giả về thư mục hiện tại
+          git clone --depth=1 -b nethunter-lineage-23.2 https://github.com source_tree
+          # Di chuyển các file cấu hình và skrip từ bộ khung vào cây mã nguồn vừa tải
+          cp -r configs scripts build.sh source_tree/ 2>/dev/null || true
 
       - name: Compile NetHunter Kernel Core
         run: |
+          cd source_tree
           export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
-          # Di chuyển các file cấu hình có sẵn của tác giả từ thư mục configs vào cây mã nguồn chính thức
+          # Thiết lập đồng bộ tệp tin cấu hình defconfig
           mkdir -p arch/arm64/configs
           cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
           cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
           
-          # Tự động tìm kiếm file cấu hình exynos phù hợp để kích hoạt trình dịch
-          if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
-            make exynos9820_defconfig
-          elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
-            make beyond2lte_defconfig
-          else
-            make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
-          fi
-          
-          # Biên dịch và bỏ qua toàn bộ Warning để không bao giờ bị đứng mã lỗi 2
-          make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
-          
-          # Tự động cấu hình cây thư mục mã nguồn
+          # Lựa chọn cấu hình và kích hoạt trình dịch
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
           elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
@@ -63,7 +58,8 @@ jobs:
       - name: Pack Kernel Into Zip
         run: |
           git clone https://github.com Update-Zip
-          find arch/arm64/boot/ out/arch/arm64/boot/ -maxdepth 2 -type f -name "Image*" -exec cp {} Update-Zip/ \; 2>/dev/null || true
+          # Tìm kiếm file Image sản phẩm từ thư mục cây mã nguồn để đóng gói
+          find source_tree/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} Update-Zip/ \;
           cd Update-Zip
           zip -r9 ../NetHunter-Kernel-S10Plus.zip *
 
