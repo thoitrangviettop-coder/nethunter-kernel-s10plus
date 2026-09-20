@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir toolchain
           cd toolchain
-          # Đã thay thế link cũ bằng link GCC 4.9 chính thức từ Google đang hoạt động tốt
+          # Link Google chuẩn thay thế hoàn toàn cho link LineageOS đã chết (exit code 128)
           git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile Kernel
