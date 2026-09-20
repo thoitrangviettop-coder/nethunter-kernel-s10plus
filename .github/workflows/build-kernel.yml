@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir toolchain
           cd toolchain
-          # Link Google chuẩn thay thế hoàn toàn cho link LineageOS đã chết (exit code 128)
+          # Link Google chuẩn thay thế cho link LineageOS đã bị chết (sửa triệt để exit code 128)
           git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile Kernel
