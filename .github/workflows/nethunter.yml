@@ -21,12 +21,12 @@ jobs:
 
       - name: Download Proton Clang and Toolchains
         run: |
-          mkdir -p toolchain
+         mkdir -p toolchain
           cd toolchain
-          # Tải bộ dịch Clang chất lượng cao từ dự án Proton chính thức
-          git clone --depth=1 https://github.com clang
+          # Sử dụng bộ dịch AOSP Clang chuẩn của Google thay cho Proton Clang để tránh lỗi exit code 128
+          git clone --depth=1 https://googlesource.com clang
           # Tải bộ dịch GCC phụ trợ bổ sung cho cấu trúc chip ARM64
-          git clone --depth=1 https://github.com gcc64
+          git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile NetHunter Kernel Core
         run: |
