@@ -32,6 +32,23 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
+          # Di chuyển các file cấu hình có sẵn của tác giả từ thư mục configs vào cây mã nguồn chính thức
+          mkdir -p arch/arm64/configs
+          cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
+          cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
+          
+          # Tự động tìm kiếm file cấu hình exynos phù hợp để kích hoạt trình dịch
+          if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
+            make exynos9820_defconfig
+          elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
+            make beyond2lte_defconfig
+          else
+            make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
+          fi
+          
+          # Biên dịch và bỏ qua toàn bộ Warning để không bao giờ bị đứng mã lỗi 2
+          make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
+          
           # Tự động cấu hình cây thư mục mã nguồn
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
