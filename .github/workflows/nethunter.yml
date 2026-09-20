@@ -5,51 +5,45 @@ on:
 
 jobs:
   build-kernel:
-    # Hạ cấp xuống Ubuntu 20.04 để tương thích với các gói thư viện và Toolchain cũ
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-    - name: Setup Build Environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-    - name: Download Toolchain
-      run: |
-        mkdir toolchain
-        cd toolchain
-        git clone --depth=1 https://github.com gcc64
+      - name: Download Toolchain
+        run: |
+          mkdir toolchain
+          cd toolchain
+          git clone --depth=1 https://googlesource.com gcc64
 
-    - name: Compile Kernel
-      run: |
-        export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-android-
-        
-        # Kiểm tra file cấu hình defconfig trong mã nguồn của bạn
-        if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
-          make exynos9820_defconfig
-        else
-          # Nếu không tìm thấy file cụ thể, tự động lấy cấu hình defconfig đầu tiên của exynos
-          make $(ls arch/arm64/configs/ | grep -i exynos | head -n 1) || make defconfig
-        fi
-        
-        make -j$(nproc)
+      - name: Compile Kernel
+        run: |
+          export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-android-
+          if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
+            make exynos9820_defconfig
+          else
+            make $(ls arch/arm64/configs/ | grep -i exynos | head -n 1) || make defconfig
+          fi
+          make -j$(nproc)
 
-    - name: Pack Kernel Into Zip
-      run: |
-        git clone https://github.com Update-Zip
-        # Tự động tìm kiếm file Image đầu ra bất kể định dạng nào
-        find out/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} Update-Zip/ \;
-        cd Update-Zip
-        zip -r9 ../NetHunter-Kernel-S10Plus.zip *
+      - name: Pack Kernel Into Zip
+        run: |
+          git clone https://github.com Update-Zip
+          find out/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} Update-Zip/ \;
+          cd Update-Zip
+          zip -r9 ../NetHunter-Kernel-S10Plus.zip *
 
-    - name: Upload Kernel Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: NetHunter-Kernel-S10Plus
-        path: NetHunter-Kernel-S10Plus.zip
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetHunter-Kernel-S10Plus
+          path: NetHunter-Kernel-S10Plus.zip
