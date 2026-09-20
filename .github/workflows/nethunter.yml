@@ -5,31 +5,24 @@ on:
 
 jobs:
   build-kernel:
-    runs-on: ubuntu-latest
+    # Hạ cấp xuống Ubuntu 20.04 để tương thích với các gói thư viện và Toolchain cũ
+    runs-on: ubuntu-20.04
 
     steps:
-    # 1. Tải mã nguồn Kernel từ Repository của bạn về máy chủ ảo
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    # 2. Cài đặt các công cụ hệ thống cần thiết để biên dịch Kernel Android
     - name: Setup Build Environment
       run: |
-        # Sửa lỗi nghẽn cổng kết nối và cập nhật danh sách gói
-        sudo rm -rf /var/lib/apt/lists/*
-        sudo apt-get update --fix-missing
-        
-        # Cài đặt môi trường kèm lệnh tự động sửa lỗi nếu kẹt (-y --fix-broken)
-        sudo apt-get install -y --fix-broken bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.1-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-    # 3. Tải bộ công cụ biên dịch (Toolchain GCC 4.9 cho Aarch64)
     - name: Download Toolchain
       run: |
         mkdir toolchain
         cd toolchain
         git clone --depth=1 https://github.com gcc64
 
-    # 4. Thực hiện lệnh cấu hình và biên dịch Kernel Exynos 9820 (Samsung S10+)
     - name: Compile Kernel
       run: |
         export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
@@ -37,21 +30,24 @@ jobs:
         export SUBARCH=arm64
         export CROSS_COMPILE=aarch64-linux-android-
         
-        # Thiết lập cấu hình mặc định cho chip Exynos 9820
-        make exynos9820_defconfig
+        # Kiểm tra file cấu hình defconfig trong mã nguồn của bạn
+        if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
+          make exynos9820_defconfig
+        else
+          # Nếu không tìm thấy file cụ thể, tự động lấy cấu hình defconfig đầu tiên của exynos
+          make $(ls arch/arm64/configs/ | grep -i exynos | head -n 1) || make defconfig
+        fi
         
-        # Bắt đầu biên dịch với toàn bộ sức mạnh lõi CPU của máy chủ ảo
         make -j$(nproc)
 
-    # 5. Đóng gói sản phẩm thành file ZIP thông qua công cụ AnyKernel3
     - name: Pack Kernel Into Zip
       run: |
         git clone https://github.com Update-Zip
-        cp out/arch/arm64/boot/Image.gz-dtb Update-Zip/ 2>/dev/null || cp out/arch/arm64/boot/Image Update-Zip/
+        # Tự động tìm kiếm file Image đầu ra bất kể định dạng nào
+        find out/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} Update-Zip/ \;
         cd Update-Zip
         zip -r9 ../NetHunter-Kernel-S10Plus.zip *
 
-    # 6. Đẩy sản phẩm lên mục Artifacts để bạn tải về máy điện thoại
     - name: Upload Kernel Artifact
       uses: actions/upload-artifact@v4
       with:
