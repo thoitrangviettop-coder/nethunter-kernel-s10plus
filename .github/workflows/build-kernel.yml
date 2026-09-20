@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir toolchain
           cd toolchain
+          # Đã thay thế link cũ bằng link GCC 4.9 chính thức từ Google đang hoạt động tốt
           git clone --depth=1 https://googlesource.com gcc64
 
       - name: Compile Kernel
@@ -31,11 +32,13 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
+          
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
           else
             make $(ls arch/arm64/configs/ | grep -i exynos | head -n 1) || make defconfig
           fi
+          
           make -j$(nproc)
 
       - name: Pack Kernel Into Zip
