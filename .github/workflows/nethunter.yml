@@ -14,7 +14,6 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          # Ép hệ thống kéo toàn bộ lịch sử nhánh mã nguồn của dự án
           fetch-depth: 0
 
       - name: Setup Build Environment
@@ -27,19 +26,23 @@ jobs:
           mkdir -p toolchain/gcc64
           curl -L https://github.com | tar -xzf - -C toolchain/gcc64 --strip-components=1
 
-      - name: Switch to NetHunter Kernel Branch
+      - name: Auto-Detect Kernel Source Tree
         run: |
-          # Kiểm tra và tự động chuyển đổi sang nhánh chứa mã nguồn nhân Linux của tác giả
-          git config --global user.email "ci@github.com"
-          git config --global user.name "GitHub CI"
-          
-          # Tự động đồng bộ mã nguồn nhánh nethunter từ kho lưu trữ gốc của tác giả
+          # Đồng bộ dữ liệu từ kho gốc của tác giả
           git remote add upstream https://github.com || true
           git fetch upstream
           
-          # Ép tạo thư mục làm việc dựa trên nhánh chứa mã nguồn nhân Linux 4.14
-          git checkout -b build_branch upstream/nethunter-lineage-23.2 || git checkout -b build_branch upstream/main || true
-          cp -r configs scripts build.sh ./ 2>/dev/null || true
+          # Tự động quét tìm nhánh chứa mã nguồn đầy đủ nhất (nethunter hoặc main)
+          if git branch -r | grep -q "upstream/nethunter"; then
+            git checkout -f $(git branch -r | grep "upstream/nethunter" | head -n 1 | sed 's/upstream\///')
+          else
+            git checkout -f main || git checkout -f master
+          fi
+          
+          # Sao chép các tệp cấu hình vào vị trí làm việc chính thức
+          mkdir -p arch/arm64/configs
+          cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
+          cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
 
       - name: Compile NetHunter Kernel Core
         run: |
@@ -48,12 +51,7 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
-          # Đồng bộ tệp tin cấu hình defconfig phần cứng S10+
-          mkdir -p arch/arm64/configs
-          cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
-          cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
-          
-          # Lựa chọn cấu hình và kích hoạt trình dịch chip Exynos 9820
+          # Lựa chọn file cấu hình phần cứng S10+ chip Exynos 9820
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
           elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
@@ -62,12 +60,13 @@ jobs:
             make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
           fi
           
+          # Tiến hành dịch mã nguồn và chặn lỗi cảnh báo
           make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
 
       - name: Pack Kernel Into Zip
         run: |
           git clone https://github.com Update-Zip
-          find arch/arm64/boot/ out/arch/arm64/boot/ -maxdepth 2 -type f -name "Image*" -exec cp {} Update-Zip/ \;
+          find arch/arm64/boot/ out/arch/arm64/boot/ -maxdepth 2 -type f -name "Image*" -exec cp {} Update-Zip/ \; 2>/dev/null || true
           cd Update-Zip
           zip -r9 ../NetHunter-Kernel-S10Plus.zip *
 
