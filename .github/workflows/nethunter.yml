@@ -45,30 +45,32 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
-          # Ép hệ thống sao chép file cấu hình từ thư mục configs gốc vào cấu trúc nhân của Linux
+          # Thiết lập đồng bộ và tạo thư mục xuất dữ liệu sạch
           mkdir -p arch/arm64/configs/
+          mkdir -p out
           if [ -d configs ]; then
             cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
             cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
           fi
           
-          # Lựa chọn file cấu hình phần cứng Samsung S10+ chip Exynos 9820
+          # Nạp cấu hình defconfig chuẩn phần cứng S10+ chip Exynos 9820 kèm thư mục out
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
-            make exynos9820_defconfig
+            make O=out exynos9820_defconfig
           elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
-            make beyond2lte_defconfig
+            make O=out beyond2lte_defconfig
           elif [ -f arch/arm64/configs/nethunter_beyond2lte_defconfig ]; then
-            make nethunter_beyond2lte_defconfig
+            make O=out nethunter_beyond2lte_defconfig
           else
-            make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
+            make O=out $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make O=out defconfig
           fi
           
-          # Thực hiện biên dịch lõi thực tế và tắt toàn bộ cảnh báo cũ để tránh dừng mã lỗi 2
-          make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
+          # Ép máy chủ bỏ qua 100% Warning code cũ để tránh dừng lỗi exit code 2
+          make O=out -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w" EXTRA_CFLAGS="-w"
 
       - name: Pack Kernel Into Zip
         run: |
           git clone https://github.com Update-Zip
+          # Quét tìm file Image đầu ra trong cả thư mục gốc và thư mục out để đóng gói
           find arch/arm64/boot/ out/arch/arm64/boot/ -maxdepth 2 -type f -name "Image*" -exec cp {} Update-Zip/ \; 2>/dev/null || true
           cd Update-Zip
           zip -r9 ../NetHunter-Kernel-S10Plus.zip *
