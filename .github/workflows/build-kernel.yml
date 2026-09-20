@@ -1,31 +1,52 @@
 name: Build NetHunter Kernel S10+
 
 on:
- workflow_dispatch:
- push:
- branches:
- - main
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
- build:
- name: Compile NetHunter Kernel (beyond2lte)
- runs-on: ubuntu-22.04
- steps:
- - name: Checkout Builder Repository
- uses: actions/checkout@v4
+  build-kernel:
+    runs-on: ubuntu-24.04
 
- - name: Install Build Dependencies
- run: |
- sudo apt update
- sudo apt install -y build-essential libncurses5-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
- - name: Run All-In-One Kernel Build
- run: |
- chmod +x build.sh scripts/*.sh
- ./build.sh
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
- - name: Upload Flashable ZIP Artifact
- uses: actions/upload-artifact@v4
- with:
- name: NetHunter-Kernel-S10Plus-ZIP
- path: output/*.zip
+      - name: Download Toolchain
+        run: |
+          mkdir toolchain
+          cd toolchain
+          git clone --depth=1 https://googlesource.com gcc64
+
+      - name: Compile Kernel
+        run: |
+          export PATH=$GITHUB_WORKSPACE/toolchain/gcc64/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-android-
+          if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
+            make exynos9820_defconfig
+          else
+            make $(ls arch/arm64/configs/ | grep -i exynos | head -n 1) || make defconfig
+          fi
+          make -j$(nproc)
+
+      - name: Pack Kernel Into Zip
+        run: |
+          git clone https://github.com Update-Zip
+          find out/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} Update-Zip/ \;
+          cd Update-Zip
+          zip -r9 ../NetHunter-Kernel-S10Plus.zip *
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetHunter-Kernel-S10Plus
+          path: NetHunter-Kernel-S10Plus.zip
