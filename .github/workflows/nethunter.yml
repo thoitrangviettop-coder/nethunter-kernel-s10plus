@@ -1,0 +1,28 @@
+name: Build NetHunter Kernel S10+
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Compile NetHunter Kernel via Build Script
+        run: |
+          # Cấp quyền thực thi và kích hoạt trực tiếp tập lệnh thông minh của tác giả
+          chmod +x build.sh scripts/*.sh
+          ./build.sh
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetHunter-Kernel-S10Plus
+          # Tự động lấy file ZIP thành phẩm được xuất ra từ thư mục output của tác giả
+          path: output/*.zip
