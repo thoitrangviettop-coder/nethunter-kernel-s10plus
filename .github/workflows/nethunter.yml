@@ -15,8 +15,12 @@ jobs:
     # 2. Cài đặt các công cụ hệ thống cần thiết để biên dịch Kernel Android
     - name: Setup Build Environment
       run: |
-        sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.1-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+        # Sửa lỗi nghẽn cổng kết nối và cập nhật danh sách gói
+        sudo rm -rf /var/lib/apt/lists/*
+        sudo apt-get update --fix-missing
+        
+        # Cài đặt môi trường kèm lệnh tự động sửa lỗi nếu kẹt (-y --fix-broken)
+        sudo apt-get install -y --fix-broken bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.1-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
     # 3. Tải bộ công cụ biên dịch (Toolchain GCC 4.9 cho Aarch64)
     - name: Download Toolchain
