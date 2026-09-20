@@ -1,0 +1,16 @@
+name: Build NetHunter Kernel S10+
+
+on:
+  workflow_dispatch:
+
+jobs:
+  kiem-tra-he-thong:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Buoc 1 - Tai ma nguon
+      uses: actions/checkout@v4
+
+    - name: Buoc 2 - Chay thu nghiem
+      run: |
+        echo "=== HE THONG DA KICH HOAT THANH CONG ==="
+        echo "Chao ban! Nut Run workflow da hoat dong hoan hao."
