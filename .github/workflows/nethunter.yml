@@ -19,7 +19,13 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev liblzo2-dev
+          
+          # Tự dựng bộ nén lzop thủ công để tránh lỗi hệ thống của chip Exynos 9820
+          curl -LO http://lzop.org
+          tar -xzf lzop-1.04.tar.gz
+          cd lzop-1.04 && ./configure && make && sudo make install
+          cd .. && rm -rf lzop-1.04*
 
       - name: Download Toolchain via Prebuilt Archive
         run: |
@@ -28,18 +34,15 @@ jobs:
 
       - name: Auto-Detect Kernel Source Tree
         run: |
-          # Đồng bộ dữ liệu từ kho gốc của tác giả
           git remote add upstream https://github.com || true
           git fetch upstream
           
-          # Tự động quét tìm nhánh chứa mã nguồn đầy đủ nhất (nethunter hoặc main)
           if git branch -r | grep -q "upstream/nethunter"; then
             git checkout -f $(git branch -r | grep "upstream/nethunter" | head -n 1 | sed 's/upstream\///')
           else
             git checkout -f main || git checkout -f master
           fi
           
-          # Sao chép các tệp cấu hình vào vị trí làm việc chính thức
           mkdir -p arch/arm64/configs
           cp configs/*_defconfig arch/arm64/configs/ 2>/dev/null || true
           cp configs/*defconfig arch/arm64/configs/ 2>/dev/null || true
@@ -51,7 +54,6 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           
-          # Lựa chọn file cấu hình phần cứng S10+ chip Exynos 9820
           if [ -f arch/arm64/configs/exynos9820_defconfig ]; then
             make exynos9820_defconfig
           elif [ -f arch/arm64/configs/beyond2lte_defconfig ]; then
@@ -60,7 +62,7 @@ jobs:
             make $(ls arch/arm64/configs/ | grep -iE 'exynos|beyond' | head -n 1) || make defconfig
           fi
           
-          # Tiến hành dịch mã nguồn và chặn lỗi cảnh báo
+          # Thêm cờ lệnh bỏ qua toàn bộ cảnh báo mã nguồn cũ
           make -j$(nproc) KCFLAGS="-w" CFLAGS_MODULE="-w"
 
       - name: Pack Kernel Into Zip
