@@ -1,31 +1,50 @@
 name: Build NetHunter Kernel S10+
 
 on:
- workflow_dispatch:
- push:
- branches:
- - main
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
- build:
- name: Compile NetHunter Kernel (beyond2lte)
- runs-on: ubuntu-22.04
- steps:
- - name: Checkout Builder Repository
- uses: actions/checkout@v4
+  build:
+    name: Compile NetHunter Kernel (beyond2lte)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Builder Repository
+        uses: actions/checkout@v4
 
- - name: Install Build Dependencies
- run: |
- sudo apt update
- sudo apt install -y build-essential libncurses5-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
+      - name: Install Build Dependencies
+        run: |
+          sudo add-apt-repository universe
+          sudo apt-get update
+          # Cài đặt đầy đủ các gói thư viện chéo 32/64-bit và các bộ nén (lzop, lz4, zip)
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev lzop libncurses5 libncurses5-dev libelf-dev wget unzip python3 python3-pip libtinfo5
 
- - name: Run All-In-One Kernel Build
- run: |
- chmod +x build.sh scripts/*.sh
- ./build.sh
+      - name: Run Script Builder Official
+        run: |
+          # 1. Dọn dẹp thư mục đầu ra trước khi chạy để tránh xung đột dữ liệu cũ
+          rm -rf output/
+          mkdir -p output
+          
+          # 2. Cấp quyền thực thi cho các tập lệnh biên dịch nhân của tác giả
+          chmod +x build.sh scripts/*.sh
+          
+          # 3. Ép cấu hình không tương tác (Non-interactive) chặn lệnh Git hỏi tài khoản/mật khẩu làm treo workflow
+          export GIT_TERMINAL_PROMPT=0
+          
+          # 4. Bỏ qua hàng loạt cảnh báo (warnings) cú pháp lỗi thời để tránh tràn dung lượng log của GitHub
+          export KCFLAGS="-w"
+          export CFLAGS_MODULE="-w"
+          export EXTRA_CFLAGS="-w"
+          
+          # 5. Kích hoạt trực tiếp kịch bản biên dịch tự động
+          ./build.sh
 
- - name: Upload Flashable ZIP Artifact
- uses: actions/upload-artifact@v4
- with:
- name: NetHunter-Kernel-S10Plus-ZIP
- path: output/*.zip
+      - name: Upload Flashable NetHunter Kernel ZIP
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetHunter-Kernel-S10Plus
+          path: output/*.zip
+          retention-days: 7
