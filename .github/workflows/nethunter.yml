@@ -1,47 +1,229 @@
-name: Build NetHunter Kernel S10+
+name: Build NetHunter Kernel - beyond2lte V2
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  KERNEL_REPO: https://github.com
+  KERNEL_BRANCH: nethunter-lineage-23.2
+  FREERUNNER_REPO: https://github.com
+  DEVICE: beyond2lte
+  ARCH: arm64
+  DEFCONFIG: nethunter_beyond2lte_defconfig
+
 jobs:
-  build-kernel:
+  build:
+    name: Build NetHunter - Samsung Galaxy S10+ Exynos 9820
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Source Code
+      # ==========================================
+      # 1. CHECKOUT WORKFLOW
+      # ==========================================
+      - name: Checkout workflow repository
         uses: actions/checkout@v4
 
-      - name: Install Missing Compiler Dependencies
+      # ==========================================
+      # 2. INSTALL BUILD DEPENDENCIES
+      # ==========================================
+      - name: Install dependencies
         run: |
-          sudo add-apt-repository universe
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libssl-dev libxml2 libxml2-utils pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev lzop libncurses5
+          sudo apt-get install -y \
+            git curl wget bc bison flex build-essential zip unzip cpio rsync \
+            python3 python3-pip python3-setuptools python3-dev \
+            libssl-dev libelf-dev libncurses-dev device-tree-compiler \
+            gcc g++ gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            clang llvm lld dwarves pahole
+          echo "Toolchain versions:"
+          clang --version
+          ld.lld --version
+          aarch64-linux-gnu-gcc --version
 
-      - name: Run Script Builder Official
+      # ==========================================
+      # 3. CLONE NETHUNTER KERNEL
+      # ==========================================
+      - name: Clone NetHunter kernel
         run: |
-          # 1. Đảm bảo loại bỏ các thư mục rác hoặc thư mục trùng tên trước khi chạy script tải nguồn
-          rm -rf output/
-          mkdir -p output
-          
-          # 2. Cấp quyền thực thi tập lệnh
-          chmod +x build.sh scripts/*.sh
-          
-          # 3. Ép cấu hình môi trường không tương tác (Non-interactive) cho Git trong GitHub Actions
-          export GIT_TERMINAL_PROMPT=0
-          
-          # 4. Bỏ qua các cảnh báo toán tử lỗi thời của mã nguồn cũ
-          export KCFLAGS="-w"
-          export CFLAGS_MODULE="-w"
-          export EXTRA_CFLAGS="-w"
-          
-          # 5. Thực thi biên dịch nhân
-          ./build.sh
+          git clone \
+            --recursive \
+            --branch "${KERNEL_BRANCH}" \
+            "${KERNEL_REPO}" \
+            kernel
+          cd kernel
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          echo "========================================"
+          echo "NETHUNTER COMMIT: $(git rev-parse HEAD)"
+          echo "Branch: $(git branch --show-current)"
+          echo "========================================"
 
-      - name: Upload Flashable NetHunter Kernel ZIP
-        # Thay đổi từ always() thành success() để chỉ upload khi build thành công, tránh tốn tài nguyên artifact nếu lỗi
-        if: success() 
+      # ==========================================
+      # 4. CLONE FREERUNNER (FOR REFERENCE)
+      # ==========================================
+      - name: Clone FreeRunnerKernel
+        run: |
+          git clone --recursive "${FREERUNNER_REPO}" freerunner
+          cd freerunner
+          echo "========================================"
+          echo "FREERUNNER COMMIT: $(git rev-parse HEAD)"
+          echo "========================================"
+
+      # ==========================================
+      # 5. VERIFY DEFCONFIG
+      # ==========================================
+      - name: Verify beyond2lte defconfigs
+        working-directory: kernel
+        run: |
+          set -e
+          echo "========================================"
+          echo "AVAILABLE BEYOND2LTE DEFCONFIGS"
+          echo "========================================"
+          find arch/arm64/configs -type f | grep -Ei 'beyond2lte|exynos9820' | sort || true
+          echo "========================================"
+          echo "SELECTED DEFCONFIG VERIFICATION"
+          echo "========================================"
+          if [ ! -f "arch/arm64/configs/${DEFCONFIG}" ]; then
+            echo "Cảnh báo: Không tìm thấy file ${DEFCONFIG}."
+            if [ -f "arch/arm64/configs/exynos9820_defconfig" ]; then
+              echo "Tự động chuyển sang sử dụng: exynos9820_defconfig"
+              echo "DEFCONFIG=exynos9820_defconfig" >> $GITHUB_ENV
+            elif [ -f "arch/arm64/configs/universal9820_defconfig" ]; then
+              echo "Tự động chuyển sang sử dụng: universal9820_defconfig"
+              echo "DEFCONFIG=universal9820_defconfig" >> $GITHUB_ENV
+            else
+              echo "::error::Không tìm thấy file defconfig hợp lệ nào cho Exynos 9820."
+              exit 1
+            fi
+          else
+            echo "Sử dụng cấu hình mục tiêu: ${DEFCONFIG}"
+          fi
+
+      # ==========================================
+      # 6. INSPECT NETHUNTER BUILD SYSTEM
+      # ==========================================
+      - name: Inspect NetHunter builder
+        run: |
+          mkdir -p analysis
+          if [ -d "kernel/kali-nethunter-kernel-builder" ]; then
+            find kernel/kali-nethunter-kernel-builder -maxdepth 4 -type f | sort > analysis/nethunter-builder-files.txt
+          fi
+          if [ -f kernel/kali-nethunter-kernel-builder/build.sh ]; then
+            sed -n '1,260p' kernel/kali-nethunter-kernel-builder/build.sh > analysis/nethunter-build.sh.txt
+          fi
+          if [ -d "kernel/kali-nethunter-kernel-builder/anykernel3" ]; then
+            find kernel/kali-nethunter-kernel-builder/anykernel3 -maxdepth 3 -type f | sort > analysis/nethunter-anykernel-files.txt
+          fi
+          find freerunner -maxdepth 4 -type f \( -name '*.sh' -o -name '*defconfig*' -o -name 'anykernel.sh' \) | sort > analysis/freerunner-build-files.txt || true
+
+      # ==========================================
+      # 7. CHECK FREERUNNER BEYOND2LTE CONFIG
+      # ==========================================
+      - name: Compare FreeRunner configuration
+        run: |
+          mkdir -p analysis
+          grep -RniE 'beyond2lte|exynos9820' freerunner --exclude-dir=.git | head -500 > analysis/freerunner-beyond2lte.txt || true
+
+      # ==========================================
+      # 8. PREPARE OUT DIRECTORY
+      # ==========================================
+      - name: Prepare kernel output
+        working-directory: kernel
+        run: |
+          rm -rf out
+          mkdir -p out
+
+      # ==========================================
+      # 9. CONFIGURE KERNEL
+      # ==========================================
+      - name: Configure NetHunter kernel
+        working-directory: kernel
+        run: |
+          set -e
+          echo "========================================"
+          echo "KERNEL CONFIGURATION GENERATING"
+          echo "========================================"
+          make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- "${DEFCONFIG}"
+          test -f out/.config
+          cp out/.config ../analysis/nethunter-kernel.config
+          echo "Đã tạo cấu hình nhân thành công."
+
+      # ==========================================
+      # 10. VERIFY IMPORTANT CONFIG OPTIONS
+      # ==========================================
+      - name: Inspect kernel configuration
+        working-directory: kernel
+        run: |
+          echo "========================================"
+          echo "IMPORTANT CONFIGURATION FLAGS"
+          echo "========================================"
+          grep -E 'CONFIG_(MODULES|MODULE_UNLOAD|MODVERSIONS|LOCALVERSION|NETHUNTER)' out/.config || true
+
+      # ==========================================
+      # 11. COMPILE KERNEL
+      # ==========================================
+      - name: Compile NetHunter kernel
+        working-directory: kernel
+        run: |
+          set -e
+          echo "========================================"
+          echo "STARTING KERNEL COMPILATION WITH CLANG/LLVM"
+          echo "========================================"
+          make -j$(nproc --all) \
+            O=out \
+            ARCH=arm64 \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip
+          echo "Biên dịch hoàn tất."
+          if [ -f "out/arch/arm64/boot/Image" ]; then
+            echo "SUCCESS: Đã tìm thấy tệp nhân Image!"
+          else
+            echo "::error::Tệp nhân hỏng hoặc không xuất hiện sau biên dịch!"
+            exit 1
+          fi
+
+      # ==========================================
+      # 12. PACK FLASHABLE ZIP USING ANYKERNEL3
+      # ==========================================
+      - name: Package NetHunter update ZIP
+        run: |
+          set -e
+          echo "========================================"
+          echo "PACKAGING FLASHABLE ZIP VIA ANYKERNEL3"
+          echo "========================================"
+          mkdir -p output_zip
+          if [ ! -d "kernel/kali-nethunter-kernel-builder/anykernel3" ]; then
+            echo "AnyKernel3 trống. Tiến hành clone tự động..."
+            git clone https://github.com packaging_tool
+            cd packaging_tool
+            cp ../kernel/out/arch/arm64/boot/Image .
+          else
+            cd kernel/kali-nethunter-kernel-builder/anykernel3
+            cp ../../out/arch/arm64/boot/Image .
+          fi
+          sed -i 's/device.name1=.*/device.name1=beyond2lte/' anykernel.sh
+          sed -i 's/device.name2=.*/device.name2=beyond1lte/' anykernel.sh
+          zip -r9 "../../../output_zip/NetHunter-Kernel-S10Plus-$(date +%Y%m%d).zip" * -x .git* README.md || \
+          zip -r9 "../output_zip/NetHunter-Kernel-S10Plus-$(date +%Y%m%d).zip" * -x .git* README.md
+          cd ../../../
+          echo "Nén file thành công:"
+          ls -la output_zip/
+
+      # ==========================================
+      # 13. UPLOAD FLASHABLE ZIP ARTIFACT
+      # ==========================================
+      - name: Upload Flashable ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NetHunter-Kernel-S10Plus
-          path: output/*.zip
-          retention-days: 7 # Tự động xóa sau 7 ngày để tối ưu dung lượng lưu trữ kho chứa
+          name: NetHunter-Kernel-S10Plus-ZIP
+          path: output_zip/*.zip
