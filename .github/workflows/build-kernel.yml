@@ -1,30 +1,37 @@
 name: Build NetHunter Kernel S10+
 
 on:
- workflow_dispatch:
- push:
- branches:
- - main
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
- build:
- name: Compile NetHunter Kernel (beyond2lte)
- runs-on: ubuntu-22.04
- steps:
- - name: Checkout Builder Repository
- uses: actions/checkout@v4
- - name: Install Build Dependencies
- run: |
- sudo apt update
- sudo apt install -y build-essential libncurses5-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
+  build:
+    name: Compile NetHunter Kernel (beyond2lte)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Builder Repository
+        uses: actions/checkout@v4
 
- - name: Run All-In-One Kernel Build
- run: |
- chmod +x build.sh scripts/*.sh
- ./build.sh
+      - name: Install Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
 
- - name: Upload Flashable ZIP Artifact
- uses: actions/upload-artifact@v4
- with:
- name: NetHunter-Kernel-S10Plus-ZIP
- path: output/*.zip
+      - name: Run All-In-One Kernel Build
+        run: |
+          # Thêm lệnh này để tải mã nguồn builder nếu thư mục trống như bước trước
+          if [ ! -f "build.sh" ]; then
+            git clone https://gitlab.com .
+          fi
+          chmod +x build.sh
+          # Tự động tạo thư mục output nếu script của bạn yêu cầu đầu ra ở đó
+          mkdir -p output
+          ./build.sh
+
+      - name: Upload Flashable ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetHunter-Kernel-S10Plus-ZIP
+          path: output/*.zip
