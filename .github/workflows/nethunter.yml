@@ -5,7 +5,6 @@ permissions:
   contents: read
 env:
   K_REPO: https://github.com
-  K_BRANCH: nethunter-lineage-23.2
   F_REPO: https://github.com
   DEFCONFIG: nethunter_beyond2lte_defconfig
   GIT_SSL_NO_VERIFY: "true"
@@ -32,7 +31,7 @@ jobs:
           git config --global http.postBuffer 524288000
           git config --global https.postBuffer 524288000
           git config --global --add safe.directory '*'
-          git clone -b "${K_BRANCH}" --depth=1 "${K_REPO}" kernel
+          git clone --depth=1 "${K_REPO}" kernel
           git clone --depth=1 "${F_REPO}" freerunner
 
       - name: Config
@@ -43,6 +42,8 @@ jobs:
               DEFCONFIG=exynos9820_defconfig
             elif [ -f "arch/arm64/configs/universal9820_defconfig" ]; then
               DEFCONFIG=universal9820_defconfig
+            else
+              DEFCONFIG=$(find arch/arm64/configs/ -name "*defconfig" | head -n 1 | xargs basename)
             fi
           fi
           make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- "${DEFCONFIG}"
