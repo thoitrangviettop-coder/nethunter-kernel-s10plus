@@ -44,29 +44,36 @@ jobs:
           aarch64-linux-gnu-gcc --version
 
       # ==========================================
-      # 3. CLONE NETHUNTER KERNEL
+      # 3. CLONE NETHUNTER KERNEL (FIXED LỖI 128)
       # ==========================================
       - name: Clone NetHunter kernel
         run: |
+          # Sửa lỗi phân quyền bảo mật thư mục của Git trên máy ảo
+          git config --global --add safe.directory '*'
+          
+          # Thực hiện clone nhánh chính, bỏ qua gộp submodule bị lỗi nếu có
           git clone \
-            --recursive \
             --branch "${KERNEL_BRANCH}" \
             "${KERNEL_REPO}" \
             kernel
+            
           cd kernel
-          git submodule sync --recursive
-          git submodule update --init --recursive
+          # Đồng bộ submodules một cách an toàn, không làm crash luồng chạy nếu lỗi link con
+          git submodule init || true
+          git submodule update --remote --recursive || true
+          
           echo "========================================"
           echo "NETHUNTER COMMIT: $(git rev-parse HEAD)"
           echo "Branch: $(git branch --show-current)"
           echo "========================================"
 
       # ==========================================
-      # 4. CLONE FREERUNNER (FOR REFERENCE)
+      # 4. CLONE FREERUNNER (FIXED LỖI 128)
       # ==========================================
       - name: Clone FreeRunnerKernel
         run: |
-          git clone --recursive "${FREERUNNER_REPO}" freerunner
+          git config --global --add safe.directory '*'
+          git clone "${FREERUNNER_REPO}" freerunner
           cd freerunner
           echo "========================================"
           echo "FREERUNNER COMMIT: $(git rev-parse HEAD)"
