@@ -21,16 +21,11 @@ jobs:
 
       - name: Run All-In-One Kernel Build
         run: |
-          # Kiểm tra xem mã nguồn builder có bị thiếu không
           if [ ! -f "build.sh" ]; then
             git clone https://gitlab.com .
           fi
-          
-          # Cấp quyền thực thi an toàn cho các tệp script hiện có
           chmod +x build.sh
           if [ -d "scripts" ]; then chmod +x scripts/*.sh; fi
-          
-          # Khởi chạy quá trình biên dịch
           ./build.sh
 
       - name: Upload Flashable ZIP Artifact
