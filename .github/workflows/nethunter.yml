@@ -44,23 +44,25 @@ jobs:
           aarch64-linux-gnu-gcc --version
 
       # ==========================================
-      # 3. CLONE NETHUNTER KERNEL (FIXED LỖI 128)
+      # 3. CLONE NETHUNTER KERNEL (VÁ LỖI 128 - TỐI ƯU TỐC ĐỘ)
       # ==========================================
       - name: Clone NetHunter kernel
         run: |
-          # Sửa lỗi phân quyền bảo mật thư mục của Git trên máy ảo
+          # Cấu hình Git tăng bộ nhớ đệm và sửa lỗi bảo mật thư mục máy ảo
           git config --global --add safe.directory '*'
+          git config --global http.postBuffer 524288000
+          git config --global https.postBuffer 524288000
           
-          # Thực hiện clone nhánh chính, bỏ qua gộp submodule bị lỗi nếu có
+          # Sử dụng --depth=1 để chỉ tải commit mới nhất (Giảm dung lượng)
           git clone \
             --branch "${KERNEL_BRANCH}" \
+            --depth=1 \
             "${KERNEL_REPO}" \
             kernel
             
           cd kernel
-          # Đồng bộ submodules một cách an toàn, không làm crash luồng chạy nếu lỗi link con
-          git submodule init || true
-          git submodule update --remote --recursive || true
+          # Khởi tạo submodules ở chế độ nông (shallow) để tránh nghẽn mạng
+          git submodule update --init --recursive --depth=1 || true
           
           echo "========================================"
           echo "NETHUNTER COMMIT: $(git rev-parse HEAD)"
@@ -68,12 +70,16 @@ jobs:
           echo "========================================"
 
       # ==========================================
-      # 4. CLONE FREERUNNER (FIXED LỖI 128)
+      # 4. CLONE FREERUNNER (VÁ LỖI 128 - TỐI ƯU TỐC ĐỘ)
       # ==========================================
       - name: Clone FreeRunnerKernel
         run: |
           git config --global --add safe.directory '*'
-          git clone "${FREERUNNER_REPO}" freerunner
+          git config --global http.postBuffer 524288000
+          git config --global https.postBuffer 524288000
+          
+          # Áp dụng sao chép tốc độ cao tương tự cho kho tham chiếu
+          git clone --depth=1 "${FREERUNNER_REPO}" freerunner
           cd freerunner
           echo "========================================"
           echo "FREERUNNER COMMIT: $(git rev-parse HEAD)"
@@ -211,7 +217,7 @@ jobs:
           mkdir -p output_zip
           if [ ! -d "kernel/kali-nethunter-kernel-builder/anykernel3" ]; then
             echo "AnyKernel3 trống. Tiến hành clone tự động..."
-            git clone https://github.com packaging_tool
+            git clone --depth=1 https://github.com packaging_tool
             cd packaging_tool
             cp ../kernel/out/arch/arm64/boot/Image .
           else
@@ -225,6 +231,7 @@ jobs:
           cd ../../../
           echo "Nén file thành công:"
           ls -la output_zip/
+
 
       # ==========================================
       # 13. UPLOAD FLASHABLE ZIP ARTIFACT
