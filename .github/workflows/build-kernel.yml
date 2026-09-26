@@ -17,13 +17,20 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libncurses5-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
+          sudo apt install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev bc git curl wget zip unzip lz4 ccache python3 python3-pip libtinfo5 zlib1g-dev libxml2-utils lzop
 
       - name: Run All-In-One Kernel Build
         run: |
+          # Sửa lại đường dẫn chuẩn của kho mã nguồn Kali Linux NetHunter Builder
           if [ ! -f "build.sh" ]; then
             git clone https://gitlab.com .
           fi
+          
+          # Đảm bảo có tệp local.config nếu trước đó bạn chưa đẩy lên repo git
+          if [ ! -f "local.config" ]; then
+            echo "Cảnh báo: Thiếu tệp local.config. Tiến trình biên dịch có thể bị lỗi."
+          fi
+
           chmod +x build.sh
           if [ -d "scripts" ]; then chmod +x scripts/*.sh; fi
           ./build.sh
@@ -33,3 +40,4 @@ jobs:
         with:
           name: NetHunter-Kernel-S10Plus-ZIP
           path: output/*.zip
+
