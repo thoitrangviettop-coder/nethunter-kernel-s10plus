@@ -4,17 +4,25 @@ on:
 permissions:
   contents: read
 env:
-  K_REPO: https://github.com
-  F_REPO: https://github.com
   DEFCONFIG: nethunter_beyond2lte_defconfig
-  GIT_SSL_NO_VERIFY: "true"
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
+      - name: Checkout Kernel
         uses: actions/checkout@v4
+        with:
+          repository: V0lk3n/nethunter_kernel_samsung_exynos9820
+          ref: nethunter-lineage-23.2
+          submodules: recursive
+          path: kernel
+
+      - name: Checkout FreeRunner
+        uses: actions/checkout@v4
+        with:
+          repository: LeDrew2017/FreeRunnerKernel
+          path: freerunner
 
       - name: Deps
         run: |
@@ -25,15 +33,6 @@ jobs:
           sudo apt-get install -y gcc g++ gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
           sudo apt-get install -y clang llvm lld dwarves pahole
 
-      - name: Clone
-        run: |
-          git config --global http.sslVerify false
-          git config --global http.postBuffer 524288000
-          git config --global https.postBuffer 524288000
-          git config --global --add safe.directory '*'
-          git clone --depth=1 "${K_REPO}" kernel
-          git clone --depth=1 "${F_REPO}" freerunner
-
       - name: Config
         working-directory: kernel
         run: |
@@ -42,8 +41,6 @@ jobs:
               DEFCONFIG=exynos9820_defconfig
             elif [ -f "arch/arm64/configs/universal9820_defconfig" ]; then
               DEFCONFIG=universal9820_defconfig
-            else
-              DEFCONFIG=$(find arch/arm64/configs/ -name "*defconfig" | head -n 1 | xargs basename)
             fi
           fi
           make O=out ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- "${DEFCONFIG}"
@@ -60,8 +57,12 @@ jobs:
       - name: Pack
         run: |
           mkdir -p output_zip
-          git clone --depth=1 https://github.com pkg
-          cd pkg
+          if [ -d "kernel/kali-nethunter-kernel-builder/anykernel3" ]; then
+            cd kernel/kali-nethunter-kernel-builder/anykernel3
+          else
+            git clone --depth=1 https://github.com pkg
+            cd pkg
+          fi
           cp ../kernel/out/arch/arm64/boot/Image .
           sed -i 's/device.name1=.*/device.name1=beyond2lte/' anykernel.sh
           zip -r9 "../output_zip/NetHunter-S10Plus.zip" * -x .git*
